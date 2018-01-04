@@ -1,5 +1,5 @@
 /*
- * SoundLoader.js
+ * SoundLoader.js 0.0.2
  * 
  * SoundJSライブラリ使用の音楽ファイル簡易ローダー
  * 
@@ -35,29 +35,28 @@
  *     {id "sound-2", src: "/audio/bgm/sound-3.mp3", data: 5}
  * ];
  * 
- * 返り値はPromiseオブジェクトとなる。これを変数に格納しておき、done()やthen()メソッドにつないでロード終了後の処理を記述する。
- * なお、メソッドの第2引数にパスを指定することで、第1引数に渡すファイルのパスをファイル名と拡張子のみ（例：sound-3.mp3）に省略できます。
+ * 返り値はPromiseオブジェクトとなる。これを変数に格納しておき、done()やthen()メソッドにつないでファイルのロード終了後の処理を記述する。
+ * なお、メソッドの第2引数にファイルまでのパスを指定できる。
  * 
  * var deferred = $.soundLoader(soundFiles, basePath);
  *
- * 返り値をDone()またはThen()、fail()メソッドにチェーンします。ひとつでも読み込みに成功した音楽ファイルがあれば、成功時のコールバックが呼び出されます。
- * 第1引数に読み込みに成功した音楽ファイルのデータが配列で渡され、第2引数に読み込みに失敗したファイルが配列で渡されます。
- * すべての音楽ファイルが読み込みに失敗したときだけ、失敗時のコールバックが呼び出されます。この場合、第1引数に読み込みに失敗したファイルが配列で渡されます。
+ * ひとつでも読み込みに成功した音楽ファイルがあれば、成功時のコールバックが呼び出される。結果は第1引数にオブジェクトとして渡され、読み込みに成功した音楽ファイルのリストがそのsuccessプロパティに、失敗したファイルのリストがerrorプロパティに格納される。
+ * すべての音楽ファイルが読み込みに失敗したときだけ、失敗時のコールバックが呼び出さる。この場合、第1引数に同様のオブジェクトが渡される。
  * 
  * var soundList;
- * deferred.done(function (successList, errorList) {
- *     doSomething(successList);
+ * deferred.done(function (result) {
+ *     doSomething(result.success);
  * });
  * 
- * 音楽データはハッシュ形式で次のようなプロパティを持ちます。ID名は自動的に拡張子を除いた音楽ファイル名になります。idおよびsrcプロパティはcreatejs.Sound.play()など
- * Soundクラスの静的メソッドの引数に指定することができます。
- * { id: 'sound-1', name: 'sound-1', src: 'sound-1.mp3' }
+ * 音楽データはハッシュ形式で次のようなプロパティを持つ。IDプロパティはcreatejs.Sound.play()メソッドなどを利用するときに必要になる。読み込みに失敗したデータについては、失敗した理由がerrorプロパティに格納される。
+ * { id: 'sound-1', src: 'sound-1.mp3' }
  * 
  * createjs.Sound.play('sound-1');
 */
 
 ;(function (global) {
     'use strict';
+
     var soundLoader, groups, caches, initialized, VALIDATE_PATH_REG, DEFAULT_CHANNELS;
     groups = [];
     caches = [];

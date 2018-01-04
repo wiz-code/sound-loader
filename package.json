@@ -1,8 +1,8 @@
 {
   "name": "sound-loader",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "JavaScript Library to make SoundJS API easy to use.",
-  "main": "sound-loader.js",
+  "main": "src/sound-loader.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
