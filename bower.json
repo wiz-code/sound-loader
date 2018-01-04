@@ -1,0 +1,29 @@
+{
+  "name": "sound-loader",
+  "description": "JavaScript Library to make SoundJS API easy to use.",
+  "main": "sound-loader.js",
+  "authors": [
+    "wiz-code <wizcode.jp@gmail.com> (http://wiz-code.digick.jp/)"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "SoundJS"
+  ],
+  "homepage": "https://github.com/wiz-code/sound-loader",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "public/components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "SoundJS": "^1.0.2"
+  },
+  "devDependencies": {
+    "jquery": "^3.2.1",
+    "underscore": "^1.8.3",
+    "materialize": "^0.100.2"
+  }
+}
