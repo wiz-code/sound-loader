@@ -1,37 +1,44 @@
 /*
- * jQuery.SoundLoader.js
+ * SoundLoader.js
  * 
  * SoundJSライブラリ使用の音楽ファイル簡易ローダー
- * jQuery, Underscore.js SoundJSライブラリが必要です。
  * 
  * -- 使い方 --
- * 
- * 次のように音楽ファイルのURLを入れた配列またはJSONを用意します。ファイルは同じドメインのものに限られます。
- * また、文字列ではなく、第1要素にファイル名、第2要素にURLとした配列を渡すと、音楽データのnameプロパティに指定したファイル名が付けられます。
+ * (1) 音楽ファイルをひとつだけ登録する場合
+ * soundLoader()メソッドの第1引数に音楽ファイルのパスを指定する（必須）。必要であれば第2引数にID名を、第3引数にdataプロパティを指定できるがこれらは省略が可能。ID名を省略した場合、音楽ファイルの拡張子を除いたファイル名に自動的にIDが割り振られるので注意が必要（音楽を鳴らすときIDが必要になる）。
+ *
+ * var deferred = $.soundLoader('sound-1.mp3', 'main-bgm');
+ *
+ * また、これらの情報をオブジェクトに格納した形でメソッドに渡すこともできる。
+ * var deferred = $.soundLoader({ src: 'sound-1.mp3', id: 'main-bgm' });
+ *
+ * 複数の音楽ファイルを一度に渡したいときは、上記のオブジェクトを要素とした配列を指定する。
  * var soundFiles = [
- *     "sound-1.mp3",
- *     "audio/sound-2.mp3",
- *     ["サウンド３", "/audio/bgm/sound-3.mp3"]
+ *     { src: 'sound-1.mp3', id: 'main-bgm' },
+ *     { src: 'sound-2.mp3', id: 'sub-bgm' },
+ *     { src: 'sound-3.mp3', id: 'gameover-bgm' }
  * ];
  *
- * さらにSoundJSに準じたオーディオスプライトなどの高度なデータの指定ができます。
+ * var deferred = $.soundLoader(soundFiles);
+ *
+ * さらにSoundJSに準じたオーディオスプライトなどの高度なデータの指定ができる。
  * var soundFiles = [
- *     [
- *         "sound-1.mp3",
- *         {
+ *     {
+ *         src: "sound-1.mp3",
+ *         data: {
  *             audioSprite: [
- *                 {id: "audio-sprite1", startTime: 0, duration: 1000}
+ *                 {id: "audio-sprite1", startTime: 0, duration: 1000},
  *                 {id: "audio-sprite2", startTime: 1500, duration: 1000}
  *             ]
- * 	       }
- *     ],
- *     ["サウンド２", "/audio/bgm/sound-3.mp3", 5]
+ *         }
+ *     },
+ *     {id "sound-2", src: "/audio/bgm/sound-3.mp3", data: 5}
  * ];
  * 
- * このリストを$.soundLoader()メソッドの引数に渡して実行します。返り値は$.DeferredのPromiseオブジェクトなので、別の変数に入れておきます。
- * メソッドの第2引数にパスを指定することで、第1引数に渡すファイルのパスをファイル名と拡張子のみ（例：sound-3.mp3）に省略できます。
+ * 返り値はPromiseオブジェクトとなる。これを変数に格納しておき、done()やthen()メソッドにつないでロード終了後の処理を記述する。
+ * なお、メソッドの第2引数にパスを指定することで、第1引数に渡すファイルのパスをファイル名と拡張子のみ（例：sound-3.mp3）に省略できます。
  * 
- * var deferred = $.soundLoader(soundFiles);
+ * var deferred = $.soundLoader(soundFiles, basePath);
  *
  * 返り値をDone()またはThen()、fail()メソッドにチェーンします。ひとつでも読み込みに成功した音楽ファイルがあれば、成功時のコールバックが呼び出されます。
  * 第1引数に読み込みに成功した音楽ファイルのデータが配列で渡され、第2引数に読み込みに失敗したファイルが配列で渡されます。
@@ -49,150 +56,202 @@
  * createjs.Sound.play('sound-1');
 */
 
-;(function (global, $) {
-	'use strict';
-	var groups, props, calledOnce, reg;
-	groups = [];
-	props = [];
-	calledOnce = false;
-	reg = /(.*\/)?([^\/]+?)\.(mp3|ogg|opus|mpeg|wav|m4a|mp4|aiff|wma|mid)$/;
+;(function (global) {
+    'use strict';
+    var soundLoader, groups, caches, initialized, VALIDATE_PATH_REG, DEFAULT_CHANNELS;
+    groups = [];
+    caches = [];
+    initialized = false;
+    VALIDATE_PATH_REG = /(.*\/)?([^\/]+?)\.(mp3|ogg|opus|mpeg|wav|m4a|mp4|aiff|wma|mid)$/;
+    DEFAULT_CHANNELS = 100;
 
-	createjs.Sound.registerPlugins([createjs.HTMLAudioPlugin]);
+    createjs.Sound.registerPlugins([createjs.HTMLAudioPlugin]);
 
-	$.soundLoader = function (source, path) {
-		var deferred, group, index, manifest, fileLength;
-		deferred = $.Deferred();
-		index = groups.length;
-		group = {
-			success: [],
-			error: [],
-			fileLength: 0,
-			deferred: deferred
-		};
-		groups[index] = group;
+    soundLoader = function (source, id, data) {
+        var group = {
+            success: [],
+            error: [],
+            fileLength: 0
+        };
+        groups[groups.length] = group;
+        
+        return new Promise(function (resolve, reject) {
+            var cache, altId, request, path, manifest, fileLength;
 
-		if (!_.isArray(source)) {
-			source = [source];
-		}
+            if (Array.isArray(source)) {
+                manifest = [];
+                path = !isUndefined(id) ? id : '';
+                
+                source.forEach(function (obj, i) {
+                    altId = getFileName(obj.src);
+                    
+                    if (altId !== '') {
+                        request = {src: obj.src};
+                        request.id = !isUndefined(obj.id) ? obj.id : altId;
+                        request.data = isNumber(obj.data) || isObject(obj.data) ? obj.data : DEFAULT_CHANNELS;
 
-		manifest = _.compact(
-			_.map(source, function (s, i) {
-				var matched, prop;
-				prop = {};
+                        cache = {
+                            src: request.src,
+                            id: request.id,
+                            order: i
+                        };
+                        caches.push(cache);
+                        manifest.push(request);
+                        
+                    } else {
+                        group.error.push({id: altId, src: obj.src, error: 'invalid file'});
+                    }
+                });
+            } else {
+                if (isString(source)) {
+                    path = '';
+                    altId = getFileName(source);
+                    if (altId !== '') {
+                        request = {src: source};
+                        request.id = isString(id) ? id : altId;
+                        request.data = isNumber(data) || isObject(data) ? data : DEFAULT_CHANNELS;
 
-				if (_.isArray(s)) {
-					if (!_.isString(s[1])) {
-						prop.src = s[0];
-						if (!_.isUndefined(s[1])) {
-							prop.data = s[1];
-						}
-					} else {
-						prop.name = s[0];
-						prop.src = s[1];
-						prop.data = s[2];
-					}
-				} else {
-					prop.src = s;
-				}
+                        cache = {
+                            src: request.src,
+                            id: request.id,
+                            order: 0
+                        };
+                        caches.push(cache);
+                        manifest = [request];
+                        
+                    } else {
+                        group.error.push({id: altId, src: source, error: 'invalid file'});
+                    }
+                    
+                } else if (isObject(source)) {
+                    path = !isUndefined(id) ? id : '';
+                    altId = getFileName(source.src);
+                    if (altId !== '') {
+                        request = {src: source.src};
+                        request.id = !isUndefined(source.id) ? source.id : altId;
+                        request.data = isNumber(source.data) || isObject(source.data) ? source.data : DEFAULT_CHANNELS;
 
-				matched = prop.src.match(reg);
-				if (!_.isNull(matched)) {
-					if (!_.isObject(prop.data)) {
-						prop.id = matched[2];
-						prop.name = !_.isUndefined(prop.name) ? prop.name : prop.id;
-					}
-				} else {
-					group.error.push({src: prop.src, error: 'invalid file'});
-					console.warn('URLは音楽ファイルを指定します。');
-					return;
-				}
+                        cache = {
+                            src: request.src,
+                            id: request.id,
+                            order: 0
+                        };
+                        caches.push(cache);
+                        manifest = [request];
+                        
+                    } else {
+                        group.error.push({id: altId, src: source.src, error: 'invalid file'});
+                    }
+                }
+            }
+            
+            group.fileLength = manifest.length;
+            createjs.Sound.registerSounds(manifest, path);
+            
+            manifest = null;
 
-				prop.path = !_.isUndefined(path) ? path : '';
-				prop.order = i;
-				prop.index = index;
-				props.push(prop);
+            if (!initialized) {
+                initialized = true;
+                createjs.Sound.on('fileload', loadSuccess);
+                createjs.Sound.on('fileerror', loadError);
+            }
+            
+            function loadSuccess(event) {
+                var id, src, cache, data;
+                id = event.id;
+                src = event.src;
+                cache = caches.find(function (c) {
+                    return c.id === id && (path + c.src) === src;
+                });
 
-				prop.data = !_.isUndefined(prop.data) ? prop.data : 2;
-				return {id: prop.id, src: prop.src, data: prop.data};
-			})
-		);
+                group.fileLength -= 1;
 
-		group.fileLength = manifest.length;
+                if (isObject(event.data) && !isUndefined(event.data.audioSprite)) {
+                    data = event.data.audioSprite.map(function (p) {
+                        return {id: p.id, src: cache.src};
+                    });
+                    group.success = group.success.concat(data);
 
-		if (!_.isUndefined(path)) {
-			manifest = {
-				path: path,
-				manifest: manifest
-			};
-		}
+                }
+                group.success.push(cache);
 
-		createjs.Sound.registerSounds(manifest);
-		manifest = null;
+                if (group.fileLength === 0) {
+                    loadComplete(group);
+                }
+            }
 
-		if (!calledOnce) {
-			calledOnce = true;
-			createjs.Sound.on('fileload', loadSuccess);
-			createjs.Sound.on('fileerror', loadError);
-		}
+            function loadError(event) {
+                var id, src, cache;
+                id = event.id;
+                src = event.src;
+                cache = caches.find(function (c) {
+                    return c.id === id && (path + c.src) === src;
+                });
+                
+                group.error.push({id: cache.id, src: cache.src, error: 'load error'});
+                group.fileLength -= 1;
+                if (group.fileLength === 0) {
+                    loadComplete(group);
+                }
+            }
+            
+            function loadComplete() {
+                var result, index;
+                result = {};
+                
+                if (group.success.length > 0) {
+                    group.success.sort(function(a, b) {
+                        if (a.order < b.order) {
+                            return -1;
+                        } else if (a.order > b.order) {
+                            return 1;
+                        } else {
+                            return 0;
+                        }
+                    });
+                    result.success = group.success;
+                    
+                    if (group.error.length > 0) {
+                        result.error = group.error;
+                    }
+                    resolve(result);
+                    
+                } else {
+                    result.error = group.error;
+                    reject(result);
+                }
+                
+                index = groups.indexOf(group);
+                groups.splice(index, 1);
+            }
+        });
+    };
 
-		return deferred.promise();
-	};
+    global.soundLoader = soundLoader;
 
-	function loadSuccess(event) {
-		var id, src, prop, group, data;
-		id = event.id;
-		src = event.src;
-		prop = _.find(props, function (prop) {
-			return prop.path + prop.src === src;
-		});
-		group = groups[prop.index];
+    function getFileName(source) {
+        var result, matched;
+        result = '';
+        matched = source.match(VALIDATE_PATH_REG);
+        if (matched !== null) {
+            result =  matched[2];
+        }
+        return result;
+    }
 
-		group.fileLength -= 1;
+    function isString(value) {
+        return Object.prototype.toString.call(value) === '[object String]';
+    }
+    
+    function isNumber(value) {
+        return Object.prototype.toString.call(value) === '[object Number]';
+    }
 
-		if (_.isObject(prop.data)) {
-			data = _.map(prop.data.audioSprite, function (p) {
-				return {id: p.id, name: p.id};
-			});
-			group.success = group.success.concat(data);
-		} else {
-			data = {
-				id: id,
-				name: prop.name,
-				order: prop.order,
-				src: src
-			};
-			group.success.push(data);
-		}
+    function isObject(value) {
+        return typeof value === 'object' && value !== null && !Array.isArray(value);
+    }
 
-		if (group.fileLength === 0) {
-			loadComplete(group);
-		}
-	}
-
-	function loadError(event) {
-		var src, prop, group;
-		src = event.src;
-		prop = _.find(props, function (prop) {
-			return prop.path + prop.src === src;
-		});
-		group = groups[prop.index];
-		group.error.push({src: src, error: 'load error'});
-		group.fileLength -= 1;
-		if (group.fileLength === 0) {
-			loadComplete(group);
-		}
-	}
-
-	function loadComplete(group) {
-		if (group.success.length > 0) {
-			group.success = _.sortBy(group.success, function (item) {
-				return item.order;
-			});
-
-			group.deferred.resolve(group.success, group.error);
-		} else {
-			group.deferred.reject(group.error);
-		}
-		group = null;
-	}
-}(this, jQuery));
+    function isUndefined(value) {
+        return typeof value === 'undefined';
+    }
+}(this));
