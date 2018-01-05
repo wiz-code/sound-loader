@@ -22,7 +22,7 @@ gulp.task('build', function () {
         ).
         pipe(sourcemaps.init()).
         pipe(uglify()).
-        pipe(sourcemaps.write()).
+        pipe(sourcemaps.write('./')).
         pipe(gulp.dest('dist/'));
 });
 
