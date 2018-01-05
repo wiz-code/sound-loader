@@ -1,5 +1,5 @@
 /*
- * SoundLoader.js 0.0.2
+ * SoundLoader.js 0.0.3
  * 
  * SoundJSライブラリ使用の音楽ファイル簡易ローダー
  * 
@@ -7,7 +7,7 @@
  * (1) 音楽ファイルをひとつだけ登録する場合
  * soundLoader()メソッドの第1引数に音楽ファイルのパスを指定する（必須）。必要であれば第2引数にID名を、第3引数にdataプロパティを指定できるがこれらは省略が可能。ID名を省略した場合、音楽ファイルの拡張子を除いたファイル名に自動的にIDが割り振られるので注意が必要（音楽を鳴らすときIDが必要になる）。
  *
- * var deferred = $.soundLoader('sound-1.mp3', 'main-bgm');
+ * var deferred = soundLoader('sound-1.mp3', 'main-bgm');
  *
  * また、これらの情報をオブジェクトに格納した形でメソッドに渡すこともできる。
  * var deferred = $.soundLoader({ src: 'sound-1.mp3', id: 'main-bgm' });
@@ -19,7 +19,7 @@
  *     { src: 'sound-3.mp3', id: 'gameover-bgm' }
  * ];
  *
- * var deferred = $.soundLoader(soundFiles);
+ * var deferred = soundLoader(soundFiles);
  *
  * さらにSoundJSに準じたオーディオスプライトなどの高度なデータの指定ができる。
  * var soundFiles = [
@@ -38,14 +38,15 @@
  * 返り値はPromiseオブジェクトとなる。これを変数に格納しておき、done()やthen()メソッドにつないでファイルのロード終了後の処理を記述する。
  * なお、メソッドの第2引数にファイルまでのパスを指定できる。
  * 
- * var deferred = $.soundLoader(soundFiles, basePath);
+ * var deferred = soundLoader(soundFiles, basePath);
  *
  * ひとつでも読み込みに成功した音楽ファイルがあれば、成功時のコールバックが呼び出される。結果は第1引数にオブジェクトとして渡され、読み込みに成功した音楽ファイルのリストがそのsuccessプロパティに、失敗したファイルのリストがerrorプロパティに格納される。
- * すべての音楽ファイルが読み込みに失敗したときだけ、失敗時のコールバックが呼び出さる。この場合、第1引数に同様のオブジェクトが渡される。
+ * すべての音楽ファイルが読み込みに失敗したときだけ、失敗時のコールバックが呼び出される。この場合、第1引数に同様のオブジェクトが渡される。
  * 
- * var soundList;
  * deferred.done(function (result) {
- *     doSomething(result.success);
+ *     if (typeof result.success !== 'undefined') {
+ *         doSomething(result.success);
+ *     }
  * });
  * 
  * 音楽データはハッシュ形式で次のようなプロパティを持つ。IDプロパティはcreatejs.Sound.play()メソッドなどを利用するときに必要になる。読み込みに失敗したデータについては、失敗した理由がerrorプロパティに格納される。
@@ -58,7 +59,7 @@
     'use strict';
 
     var soundLoader, groups, caches, initialized, VALIDATE_PATH_REG, DEFAULT_CHANNELS;
-    groups = [];
+    groups = {};
     caches = [];
     initialized = false;
     VALIDATE_PATH_REG = /(.*\/)?([^\/]+?)\.(mp3|ogg|opus|mpeg|wav|m4a|mp4|aiff|wma|mid)$/;
@@ -67,12 +68,17 @@
     createjs.Sound.registerPlugins([createjs.HTMLAudioPlugin]);
 
     soundLoader = function (source, id, data) {
-        var group = {
+        var group, groupId;
+        group = {
+            id: '',
             success: [],
             error: [],
-            fileLength: 0
+            fileLength: 0,
+            complete: null
         };
-        groups[groups.length] = group;
+        groupId = createUUID();
+        group.id= groupId;
+        groups[groupId] = group;
         
         return new Promise(function (resolve, reject) {
             var cache, altId, request, path, manifest, fileLength;
@@ -82,23 +88,48 @@
                 path = !isUndefined(id) ? id : '';
                 
                 source.forEach(function (obj, i) {
-                    altId = getFileName(obj.src);
-                    
-                    if (altId !== '') {
-                        request = {src: obj.src};
-                        request.id = !isUndefined(obj.id) ? obj.id : altId;
-                        request.data = isNumber(obj.data) || isObject(obj.data) ? obj.data : DEFAULT_CHANNELS;
+                    if (isString(obj.src)) {
+                        altId = getFileName(obj.src);
 
+                        if (altId !== '') {
+                            request = {src: obj.src};
+                            request.id = !isUndefined(obj.id) ? obj.id : altId;
+                            request.data = isNumber(obj.data) || isObject(obj.data) ? obj.data : DEFAULT_CHANNELS;
+
+                            cache = {
+                                src: request.src,
+                                id: request.id,
+                                order: i,
+                                groupId: groupId
+                            };
+                            caches.push(cache);
+                            manifest.push(request);
+
+                        } else {
+                            group.error.push({id: altId, src: obj.src, error: 'invalid file'});
+                        }
+                    } else {
+                        request = {id: obj.id, src: {}};
+                        request.data = isNumber(obj.data) || isObject(obj.data) ? obj.data : DEFAULT_CHANNELS;
+                        
+                        Object.keys(obj.src).forEach(function (key) {
+                            altId = getFileName(obj.src[key]);
+                            if (altId !== '') {
+                                request.src[key] = obj.src[key];
+                                
+                            } else {
+                                group.error.push({id: altId, src: obj.src[key], error: 'invalid alternate file'});
+                            }
+                        });
+                        
                         cache = {
                             src: request.src,
                             id: request.id,
-                            order: i
+                            order: i,
+                            groupId: groupId
                         };
                         caches.push(cache);
                         manifest.push(request);
-                        
-                    } else {
-                        group.error.push({id: altId, src: obj.src, error: 'invalid file'});
                     }
                 });
             } else {
@@ -113,7 +144,8 @@
                         cache = {
                             src: request.src,
                             id: request.id,
-                            order: 0
+                            order: 0,
+                            groupId: groupId
                         };
                         caches.push(cache);
                         manifest = [request];
@@ -124,22 +156,47 @@
                     
                 } else if (isObject(source)) {
                     path = !isUndefined(id) ? id : '';
-                    altId = getFileName(source.src);
-                    if (altId !== '') {
-                        request = {src: source.src};
-                        request.id = !isUndefined(source.id) ? source.id : altId;
-                        request.data = isNumber(source.data) || isObject(source.data) ? source.data : DEFAULT_CHANNELS;
+                    if (isString(source.src)) {
+                        altId = getFileName(source.src);
+                        if (altId !== '') {
+                            request = {src: source.src};
+                            request.id = !isUndefined(source.id) ? source.id : altId;
+                            request.data = isNumber(source.data) || isObject(source.data) ? source.data : DEFAULT_CHANNELS;
 
+                            cache = {
+                                src: request.src,
+                                id: request.id,
+                                order: 0,
+                                groupId: groupId
+                            };
+                            caches.push(cache);
+                            manifest = [request];
+
+                        } else {
+                            group.error.push({id: altId, src: source.src, error: 'invalid file'});
+                        }
+                    } else {
+                        request = {id: source.id, src: {}};
+                        request.data = isNumber(source.data) || isObject(source.data) ? source.data : DEFAULT_CHANNELS;
+                        
+                        Object.keys(source.src).forEach(function (key) {
+                            altId = getFileName(source.src[key]);
+                            if (altId !== '') {
+                                request.src[key] = source.src[key];
+                                
+                            } else {
+                                group.error.push({id: altId, src: source.src[key], error: 'invalid alternate file'});
+                            }
+                        });
+                        
                         cache = {
                             src: request.src,
                             id: request.id,
-                            order: 0
+                            order: 0,
+                            groupId: groupId
                         };
                         caches.push(cache);
                         manifest = [request];
-                        
-                    } else {
-                        group.error.push({id: altId, src: source.src, error: 'invalid file'});
                     }
                 }
             }
@@ -147,59 +204,12 @@
             group.fileLength = manifest.length;
             createjs.Sound.registerSounds(manifest, path);
             
-            manifest = null;
-
-            if (!initialized) {
-                initialized = true;
-                createjs.Sound.on('fileload', loadSuccess);
-                createjs.Sound.on('fileerror', loadError);
-            }
-            
-            function loadSuccess(event) {
-                var id, src, cache, data;
-                id = event.id;
-                src = event.src;
-                cache = caches.find(function (c) {
-                    return c.id === id && (path + c.src) === src;
-                });
-
-                group.fileLength -= 1;
-
-                if (isObject(event.data) && !isUndefined(event.data.audioSprite)) {
-                    data = event.data.audioSprite.map(function (p) {
-                        return {id: p.id, src: cache.src};
-                    });
-                    group.success = group.success.concat(data);
-
-                }
-                group.success.push(cache);
-
-                if (group.fileLength === 0) {
-                    loadComplete(group);
-                }
-            }
-
-            function loadError(event) {
-                var id, src, cache;
-                id = event.id;
-                src = event.src;
-                cache = caches.find(function (c) {
-                    return c.id === id && (path + c.src) === src;
-                });
-                
-                group.error.push({id: cache.id, src: cache.src, error: 'load error'});
-                group.fileLength -= 1;
-                if (group.fileLength === 0) {
-                    loadComplete(group);
-                }
-            }
-            
-            function loadComplete() {
+            group.complete = function () {
                 var result, index;
                 result = {};
                 
                 if (group.success.length > 0) {
-                    group.success.sort(function(a, b) {
+                    group.success.sort(function (a, b) {
                         if (a.order < b.order) {
                             return -1;
                         } else if (a.order > b.order) {
@@ -220,13 +230,78 @@
                     reject(result);
                 }
                 
-                index = groups.indexOf(group);
-                groups.splice(index, 1);
+                groups[group.id] = null;
+                group = null;
+            };
+            
+            if (!initialized) {
+                initialized = true;
+                createjs.Sound.on('fileload', loadSuccess);
+                createjs.Sound.on('fileerror', loadError);
             }
         });
     };
 
     global.soundLoader = soundLoader;
+    
+    function createUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+    
+    function loadSuccess(event) {
+        var id, src, group, cache, data;
+        id = event.id;
+        src = event.src;
+        cache = caches.find(function (c) {
+            return c.id === id;
+        });
+        cache.src = src;
+        
+        Object.keys(groups).forEach(function (key) {
+            if (cache.groupId === key) {
+                group = groups[key];
+            }
+        });
+        
+        group.fileLength -= 1;
+
+        if (isObject(event.data) && !isUndefined(event.data.audioSprite)) {
+            data = event.data.audioSprite.map(function (p) {
+                return {id: p.id, src: src, order: Infinity};
+            });
+            group.success = group.success.concat(data);
+        }
+
+        group.success.push(cache);
+            if (group.fileLength === 0) {
+            group.complete();
+        }
+    }
+
+    function loadError(event) {
+        var id, src, cache, group;
+        id = event.id;
+        src = event.src;
+        
+        cache = caches.find(function (c) {
+            return c.id === id;
+        });
+        
+        Object.keys(groups).forEach(function (key) {
+            if (cache.groupId === key) {
+                group = groups[key];
+            }
+        });
+        
+        group.error.push({id: id, src: src, error: 'load error'});
+        group.fileLength -= 1;
+        if (group.fileLength === 0) {
+            group.complete();
+        }
+    }
 
     function getFileName(source) {
         var result, matched;
