@@ -20,7 +20,12 @@
   },
   "homepage": "https://github.com/wiz-code/sound-loader#readme",
   "devDependencies": {
-    "gulp": "^3.9.1"
+    "gulp": "^3.9.1",
+    "gulp-plumber": "^1.1.0",
+    "gulp-rename": "^1.2.2",
+    "gulp-sass": "^3.1.0",
+    "gulp-sourcemaps": "^2.6.3",
+    "gulp-uglify": "^3.0.0"
   },
   "dependencies": {
     "ejs": "^2.5.7",

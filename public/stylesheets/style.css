@@ -1,7 +1,4 @@
-.buttons > a {
-  margin-right: 15px;
-}
-
 .buttons {
-    margin-bottom: 20px !important;
-}
+  margin-bottom: 20px !important; }
+  .buttons > a {
+    margin-right: 15px; }
