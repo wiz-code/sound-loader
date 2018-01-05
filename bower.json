@@ -19,7 +19,8 @@
     "tests"
   ],
   "dependencies": {
-    "SoundJS": "^1.0.2"
+    "SoundJS": "^1.0.2",
+    "es5-shim": "^4.5.10"
   },
   "devDependencies": {
     "jquery": "^3.2.1",
