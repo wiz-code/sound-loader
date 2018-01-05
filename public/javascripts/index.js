@@ -1,40 +1,32 @@
 $(function () {
     'use strict';
     
-    var audioData = [
+    var audioData1 = [
         {
             id: 'main',
             src: 'itsuka_no_yume.mp3',
             data: {
                 audioSprite: [
-                    {id: "audio-sprite1", startTime: 1500, duration: 500},
-                    {id: "audio-sprite2", startTime: 2000, duration: 500}
+                    {id: "audio-sprite1", startTime: 1500, duration: 1500},
+                    {id: "audio-sprite2", startTime: 3000, duration: 1500}
                 ]
             },
         },
         {id: 'start', src: 'decision7.mp3', data: {channels: 1}},
-        {id: 'decision', src: 'decision3.mp3'},
-        {id: 'cancel', src: 'cancel4.mp3'},
-        {id: 'hover', src: 'cursor1.mp3'},
+        {id: 'decision', src: {wav: 'decision3.wav', mp3: 'decision3.mp3'}}
     ];
     
-    /*var audioData = {
-        src: 'decision3.wav',
-        id: 'main',
-        data: {
-            audioSprite: [
-                {id: "audio-sprite1", startTime: 0, duration: 500},
-                {id: "audio-sprite2", startTime: 500, duration: 1000}
-            ]
-        }
-    };*/
+    var audioData2 = [
+        {id: 'cancel', src: 'cancel4.mp3'},
+        {id: 'hover', src: 'cursor1.mp3'}
+    ];
     
     var audioInstance = {
         main: null,
         decision: null,
         cancel: null
     };
-    createjs.Sound.alternateExtensions = ['wav'];
+    createjs.Sound.alternateExtensions = ['mp3', 'wav'];
     /* マスタボリュームの設定 */
     createjs.Sound.volume = 1.0;
     
@@ -52,26 +44,29 @@ $(function () {
         volume: .8
     });
     
-    var deferred = soundLoader(audioData, 'sounds/');
+    var deferred1 = soundLoader(audioData1, 'sounds/');
+    var deferred2 = soundLoader(audioData2, 'sounds/');
     
-    deferred.then(
-        function (result) {
-            console.dir(result);
-            
-            
-            $('#play').on('click', function (e) {
-                var instance = createjs.Sound.createInstance('audio-sprite1');
-                instance.play(config.sound);
-            });
-            $('#stop').on('click', function (e) {
-                var instance = createjs.Sound.createInstance('decision');
-                instance.play(config.sound);
-            });
-        },
-        function (result) {
-            console.dir(result);
-        }
-    );
+    var index = 0;
+    deferred1.then(callback);
+    deferred2.then(callback);
+    
+    function callback(result) {
+        var list, instance;
+         if (result.success) {
+             list = result.success;
+             for (var i = 0; i < list.length; i += 1, index += 1) {
+                 instance = createjs.Sound.createInstance(list[i].id);
+                 $('#track-' + (index + 1) + '-play').on('click', {instance: instance}, function (e) {
+                     e.data.instance.play(config.sound);
+                 });
+                 $('#track-' + (index + 1) + '-stop').on('click', {instance: instance}, function (e) {
+                     e.data.instance.stop();
+                 });
+                 
+             }
+         }
+    }
     
     if (!Array.prototype.find) {
       Object.defineProperty(Array.prototype, 'find', {
