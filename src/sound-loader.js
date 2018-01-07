@@ -1,27 +1,28 @@
 /*
  * SoundLoader.js 0.1.0
  * 
- * SoundJSライブラリ使用の音楽ファイル簡易ローダー
+ * Promise音楽ファイルローダー
  * 
+ * SoundLoader.jsはSoundJSライブラリで音楽ファイルのプリロードを行うとき、読み込んだ結果をPromiseオブジェクトを使用して処理できるようにしたライブラリです。CreateJSのSoundJSライブラリを必要とします。また、PromiseやES5の機能が使えない環境ではポリフィルを導入する必要があります。
+ *
  * -- 使い方 --
- * (1) 音楽ファイルをひとつだけ登録する場合
- * soundLoader()メソッドの第1引数に音楽ファイルのパスを指定する（必須）。必要であれば第2引数にID名を、第3引数にdataプロパティを指定できるがこれらは省略が可能。ID名を省略した場合、音楽ファイルの拡張子を除いたファイル名に自動的にIDが割り振られるので注意が必要（音楽を鳴らすときIDが必要になる）。
+ * 音楽ファイルをひとつだけ登録する場合、SoundJSライブラリのregisterSound()メソッドに指定するものと同様、soundLoader()メソッドの第1引数に音楽ファイルのパス（文字列）を指定します（必須）。必要であれば第2引数にID名を、第3引数にdataプロパティを指定できますがこれらは省略が可能です。ID名を省略した場合、その音楽ファイルの拡張子を除いたファイル名に自動的にIDが割り振られるので注意が必要です（音楽を鳴らすときIDが必要になる）。
  *
- * var deferred = soundLoader('sound-1.mp3', 'main-bgm');
+ * var promise = soundLoader('sound-1.mp3', 'main-bgm');
  *
- * また、これらの情報をオブジェクトに格納した形でメソッドに渡すこともできる。
- * var deferred = $.soundLoader({ src: 'sound-1.mp3', id: 'main-bgm' });
+ * また、これらの情報をオブジェクトに格納した形でメソッドに渡すこともできます。
+ * var promise = $.soundLoader({ src: 'sound-1.mp3', id: 'main-bgm' });
  *
- * 複数の音楽ファイルを一度に渡したいときは、上記のオブジェクトを要素とした配列を指定する。
+ * 複数の音楽ファイルを一度に渡したいときは、上記のオブジェクトを要素とした配列を指定します。SoundJSでは複数指定の場合、registerSounds()メソッドを使用しますが、SoundLoader.jsは同じsoundLoader()メソッドに指定します。
  * var soundFiles = [
  *     { src: 'sound-1.mp3', id: 'main-bgm' },
  *     { src: 'sound-2.mp3', id: 'sub-bgm' },
  *     { src: 'sound-3.mp3', id: 'gameover-bgm' }
  * ];
  *
- * var deferred = soundLoader(soundFiles);
+ * var promise = soundLoader(soundFiles);
  *
- * さらにSoundJSに準じたオーディオスプライトなどの高度なデータの指定ができる。
+ * さらにSoundJSと同様にオーディオスプライトなどの高度なデータの指定が可能です。
  * var soundFiles = [
  *     {
  *         src: "sound-1.mp3",
@@ -35,21 +36,21 @@
  *     {id "sound-2", src: "/audio/bgm/sound-3.mp3", data: 5}
  * ];
  * 
- * 返り値はPromiseオブジェクトとなる。これを変数に格納しておき、done()やthen()メソッドにつないでファイルのロード終了後の処理を記述する。
- * なお、メソッドの第2引数にファイルまでのパスを指定できる。
+ * 返り値はPromiseオブジェクトになるので、これをdone()やthen()メソッドにつないでファイルのロード終了後の処理を記述します。
+ * なお、soundLoaderメソッドは第2引数にファイルまでのパス（"sounds/"など）を指定できます。
  * 
- * var deferred = soundLoader(soundFiles, basePath);
+ * var promise = soundLoader(soundFiles, 'sounds/');
  *
- * ひとつでも読み込みに成功した音楽ファイルがあれば、成功時のコールバックが呼び出される。結果は第1引数にオブジェクトとして渡され、読み込みに成功した音楽ファイルのリストがそのsuccessプロパティに、失敗したファイルのリストがerrorプロパティに格納される。
- * すべての音楽ファイルが読み込みに失敗したときだけ、失敗時のコールバックが呼び出される。この場合、第1引数に同様のオブジェクトが渡される。
+ * 読み込んだ音楽ファイルのうちひとつでも読み込みに成功した場合、Done()メソッドなど成功時のコールバックが呼び出されます。結果は第1引数にオブジェクトとして渡され、読み込みに成功した音楽ファイルのリストがそのsuccessプロパティに、失敗したファイルのリストがerrorプロパティに格納されます。
+ * Fail()など失敗時のコールバックが呼び出されるのは、すべての音楽ファイルが読み込みに失敗したときだけです。この場合も第1引数に同様のオブジェクトが渡されますが、errorプロパティのみアクセスできます。
  * 
- * deferred.done(function (result) {
+ * promise.done(function (result) {
  *     if (typeof result.success !== 'undefined') {
  *         doSomething(result.success);
  *     }
  * });
  * 
- * 音楽データはハッシュ形式で次のようなプロパティを持つ。IDプロパティはcreatejs.Sound.play()メソッドなどを利用するときに必要になる。読み込みに失敗したデータについては、失敗した理由がerrorプロパティに格納される。
+ * 音楽データはハッシュ形式で次のようなプロパティを持ちます。IDプロパティはcreatejs.Sound.play()メソッドなどを利用するときに必要になり、読み込みに失敗したデータについては、失敗した理由がerrorプロパティに格納されます。
  * { id: 'sound-1', src: 'sound-1.mp3' }
  * 
  * createjs.Sound.play('sound-1');
