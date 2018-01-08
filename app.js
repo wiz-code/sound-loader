@@ -30,7 +30,7 @@ app.use(function(err, req, res, next) {
 });
 
 var server = app.listen(3000, function () {
-    console.log('successful!!');
+    console.log('successful');
 });
 
 
