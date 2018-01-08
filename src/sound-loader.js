@@ -1,19 +1,24 @@
 /*
- * SoundLoader.js 0.1.0
+ * SoundLoader.js 0.1.1
  * 
  * Promise音楽ファイルローダー
  * 
- * SoundLoader.jsはSoundJSライブラリで音楽ファイルのプリロードを行うとき、読み込んだ結果をPromiseオブジェクトを使用して処理できるようにしたライブラリです。CreateJSのSoundJSライブラリを必要とします。また、PromiseやES5の機能が使えない環境ではポリフィルを導入する必要があります。
+ * SoundLoader.jsはSoundJSライブラリで音楽ファイルのプリロードを行うとき、読み込んだ結果をPromiseオブジェクトを使用して処理できるようにしたライブラリです。
+ * CreateJSのSoundJSライブラリを必要とします。また、PromiseやES5の機能が使えない環境ではポリフィルを導入する必要があります。
  *
  * -- 使い方 --
- * 音楽ファイルをひとつだけ登録する場合、SoundJSライブラリのregisterSound()メソッドに指定するものと同様、soundLoader()メソッドの第1引数に音楽ファイルのパス（文字列）を指定します（必須）。必要であれば第2引数にID名を、第3引数にdataプロパティを指定できますがこれらは省略が可能です。ID名を省略した場合、その音楽ファイルの拡張子を除いたファイル名に自動的にIDが割り振られるので注意が必要です（音楽を鳴らすときIDが必要になる）。
+ * 音楽ファイルをひとつだけ登録する場合、SoundJSライブラリのregisterSound()メソッドに指定するものと同様、soundLoader()メソッドの第1引数に音楽ファイルの
+ * パス（文字列）を指定します（必須）。必要であれば第2引数にID名を、第3引数にdataプロパティを指定できますがこれらは省略が可能です。ID名を省略した場合、その
+ * 音楽ファイルの拡張子を除いたファイル名に自動的にIDが割り振られるので注意が必要です（音楽を鳴らすときIDが必要になる）。
  *
  * var promise = soundLoader('sound-1.mp3', 'main-bgm');
  *
- * また、これらの情報をオブジェクトに格納した形でメソッドに渡すこともできます。
+ * また、これらの情報をオブジェクトに格納した形でメソッドに渡すこともできます。第1引数にオブジェクトまたは配列を指定した場合、第2引数にファイルまでのパス
+ * （"sounds/"など）が指定可能です。その他、第3引数にロード完了時のデータに紐付けるためのデータ（ラベル）を指定できます。
  * var promise = $.soundLoader({ src: 'sound-1.mp3', id: 'main-bgm' });
  *
- * 複数の音楽ファイルを一度に渡したいときは、上記のオブジェクトを要素とした配列を指定します。SoundJSでは複数指定の場合、registerSounds()メソッドを使用しますが、SoundLoader.jsは同じsoundLoader()メソッドに指定します。
+ * 複数の音楽ファイルを一度に渡したいときは、上記のオブジェクトを要素とした配列を指定します。SoundJSでは複数指定の場合、registerSounds()メソッドを使用します
+ * が、SoundLoader.jsは同じsoundLoader()メソッドに指定します。
  * var soundFiles = [
  *     { src: 'sound-1.mp3', id: 'main-bgm' },
  *     { src: 'sound-2.mp3', id: 'sub-bgm' },
@@ -37,12 +42,14 @@
  * ];
  * 
  * 返り値はPromiseオブジェクトになるので、これをthen()メソッドにつないでファイルのロード終了後の処理を記述します。
- * なお、soundLoaderメソッドは第2引数にファイルまでのパス（"sounds/"など）を指定できます。
  * 
  * var promise = soundLoader(soundFiles, 'sounds/');
  *
- * 読み込んだ音楽ファイルのうちひとつでも読み込みに成功した場合、成功時のコールバックが呼び出されます。結果は第1引数にオブジェクトとして渡され、読み込みに成功した音楽ファイルのリストがそのsuccessプロパティに、失敗したファイルのリストがerrorプロパティに格納されます。
- * 失敗時のコールバックが呼び出されるのは、すべての音楽ファイルが読み込みに失敗したときだけです。この場合も第1引数に同様のオブジェクトが渡されますが、errorプロパティのみアクセスできます。
+ * 読み込んだ音楽ファイルのうちひとつでも読み込みに成功した場合、成功時のコールバックが呼び出されます。結果は第1引数にオブジェクトとして渡され、読み込みに成功
+ * した音楽ファイルのリストがそのsuccessプロパティに、失敗したファイルのリストがerrorプロパティに格納されます。soundLoader()呼び出し時にラベルを指定した
+ * 場合、labelプロパティから紐付けたデータを参照できます。
+ * 失敗時のコールバックが呼び出されるのは、すべての音楽ファイルが読み込みに失敗したときだけです。この場合も第1引数に同様のオブジェクトが渡されますが、error
+ * プロパティのみアクセスできます。
  * 
  * promise.then(function (result) {
  *     if (typeof result.success !== 'undefined') {
@@ -51,7 +58,7 @@
  * });
  * 
  * 音楽データはハッシュ形式で次のようなプロパティを持ちます。IDプロパティはcreatejs.Sound.play()メソッドなどを利用するときに必要になり、読み込みに失敗したデータについては、失敗した理由がerrorプロパティに格納されます。
- * { id: 'sound-1', src: 'sound-1.mp3' }
+ * { id: 'sound-1', src: 'sound-1.mp3', data: 100 }
  * 
  * createjs.Sound.play('sound-1');
 */
@@ -94,6 +101,7 @@ if (!Array.prototype.find) {
         var group, groupId;
         group = {
             id: '',
+            label: '',
             success: [],
             error: [],
             fileLength: 0,
@@ -109,6 +117,7 @@ if (!Array.prototype.find) {
             if (Array.isArray(source)) {
                 manifest = [];
                 path = !isUndefined(id) ? id : '';
+                group.label = !isUndefined(data) ? data : '';
                 
                 source.forEach(function (obj, i) {
                     if (isString(obj.src)) {
@@ -179,6 +188,8 @@ if (!Array.prototype.find) {
                     
                 } else if (isObject(source)) {
                     path = !isUndefined(id) ? id : '';
+                    group.label = !isUndefined(data) ? data : '';
+                    
                     if (isString(source.src)) {
                         altId = getFileName(source.src);
                         if (altId !== '') {
@@ -229,7 +240,9 @@ if (!Array.prototype.find) {
             
             group.complete = function () {
                 var result, index;
-                result = {};
+                result = {
+                    label: group.label
+                };
                 
                 if (group.success.length > 0) {
                     group.success.sort(function (a, b) {
@@ -241,11 +254,19 @@ if (!Array.prototype.find) {
                             return 0;
                         }
                     });
-                    result.success = group.success;
+                    
+                    result.success = group.success.map(function (obj) {
+                        return {
+                            id: obj.id,
+                            src: obj.id,
+                            data: obj.data
+                        };
+                    });
                     
                     if (group.error.length > 0) {
                         result.error = group.error;
                     }
+                    
                     resolve(result);
                     
                 } else {
@@ -275,31 +296,36 @@ if (!Array.prototype.find) {
     }
     
     function loadSuccess(event) {
-        var id, src, group, cache, data;
+        var id, src, data, result, group, cache, sprites;
         id = event.id;
         src = event.src;
+        data = event.data;
+        
         cache = caches.find(function (c) {
             return c.id === id;
         });
-        cache.src = src;
-        
+        result = {
+            id: id,
+            src: src,
+            data: data,
+            order: cache.order
+        };
         Object.keys(groups).forEach(function (key) {
             if (cache.groupId === key) {
                 group = groups[key];
             }
         });
         
-        group.fileLength -= 1;
-
-        if (isObject(event.data) && !isUndefined(event.data.audioSprite)) {
-            data = event.data.audioSprite.map(function (p) {
-                return {id: p.id, src: src, order: Infinity};
+        group.success.push(result);
+        if (isObject(data) && !isUndefined(data.audioSprite)) {
+            sprites = data.audioSprite.map(function (p) {
+                return {id: p.id, src: src, order: cache.order};
             });
-            group.success = group.success.concat(data);
+            group.success = group.success.concat(sprites);
         }
-
-        group.success.push(cache);
-            if (group.fileLength === 0) {
+        
+        group.fileLength -= 1;
+        if (group.fileLength === 0) {
             group.complete();
         }
     }
