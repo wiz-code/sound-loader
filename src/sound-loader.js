@@ -1,5 +1,5 @@
 /*
- * SoundLoader.js 0.1.1
+ * SoundLoader.js 0.1.2
  * 
  * Promise音楽ファイルローダー
  * 
@@ -94,8 +94,6 @@ if (!Array.prototype.find) {
     initialized = false;
     VALIDATE_PATH_REG = /(.*\/)?([^\/]+?)\.(mp3|ogg|opus|mpeg|wav|m4a|mp4|aiff|wma|mid)$/;
     DEFAULT_CHANNELS = 100;
-
-    createjs.Sound.registerPlugins([createjs.HTMLAudioPlugin]);
 
     soundLoader = function (source, id, data) {
         var group, groupId;
